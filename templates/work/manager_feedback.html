@@ -1,0 +1,39 @@
+{% extends "layouts/base.html" %}
+{% block content %}
+<div class="container-fluid">
+  <h3>Phản hồi của quản lý: {{ task.title }}</h3>
+
+  <div class="row">
+    <div class="col-md-5">
+      <form method="post" class="card card-body mb-3">
+        {% csrf_token %}
+        <div class="form-group">
+          <label>Nội dung phản hồi</label>
+          {{ form.content }}
+        </div>
+        <button class="btn btn-secondary">Gửi phản hồi</button>
+        <a href="{% url 'task_list' %}" class="btn btn-light">Quay lại</a>
+      </form>
+    </div>
+
+    <div class="col-md-7">
+      <div class="card">
+        <div class="card-header">Lịch sử phản hồi</div>
+        <div class="card-body" style="max-height: 60vh; overflow:auto;">
+          {% for fb in feedbacks %}
+            <div class="mb-3 pb-2 border-bottom">
+              <div class="small text-muted">
+                {{ fb.created_at|date:"d/m/Y H:i" }} • {{ fb.manager.get_full_name|default:fb.manager.username }}
+              </div>
+              <pre class="mb-0">{{ fb.content }}</pre>
+            </div>
+          {% empty %}
+            <p class="text-muted mb-0">Chưa có phản hồi nào.</p>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+

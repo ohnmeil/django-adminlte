@@ -14,7 +14,11 @@ import os, random, string
 from pathlib import Path
 from dotenv import load_dotenv
 from str2bool import str2bool
+from django.utils.translation import gettext_lazy as _
 
+ADMIN_SITE_HEADER = "Quản lý công việc"
+ADMIN_SITE_TITLE = "O³ Invest"
+ADMIN_INDEX_TITLE = "Trang điều khiển"
 load_dotenv()  # take environment variables from .env.
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -53,6 +57,7 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
 
+    "work",
     # Serve UI pages
     "apps.pages",
 
@@ -173,7 +178,14 @@ STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 STATICFILES_DIRS = (
     os.path.join(BASE_DIR, 'static'),
 )
-
+# Gửi email
+EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+EMAIL_HOST = "smtp.gmail.com"
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+EMAIL_HOST_USER = "yourgmail@gmail.com"          # đổi thành gmail của bạn
+EMAIL_HOST_PASSWORD = "app_password_16_chars"    # App Password (không phải mật khẩu Gmail)
+DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 #if not DEBUG:
 #    STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
@@ -182,7 +194,9 @@ STATICFILES_DIRS = (
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
-LOGIN_REDIRECT_URL = '/'
+LOGIN_URL = "login"
+LOGIN_REDIRECT_URL = "/tien-do-thuc-hien/"
+LOGOUT_REDIRECT_URL = "/login/"
 EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 
 # ### DYNAMIC_DATATB Settings ###

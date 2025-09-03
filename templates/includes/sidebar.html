@@ -1,47 +1,150 @@
-{% load i18n static admin_adminlte %}
+{% load static %}
 
-<!-- Main Sidebar Container -->
 <aside class="main-sidebar sidebar-dark-primary elevation-4">
-  <!-- Brand Logo -->
+  <!-- Brand -->
   <a href="/" class="brand-link">
-    <img src="{% static 'dist/img/AdminLTELogo.png' %}" alt="AdminLTE Logo" class="brand-image img-circle elevation-3"
-      style="opacity: .8">
-    <span class="brand-text font-weight-light">AdminLTE 3</span>
+    <img src="{% static 'images/logo1.png' %}" alt="O³ Invest"
+         class="brand-image img-circle elevation-3" style="opacity:.9">
+    <span class="brand-text font-weight-light">O³ Invest</span>
   </a>
 
-  <!-- Sidebar -->
   <div class="sidebar">
-    <!-- Sidebar user panel (optional) -->
+    <!-- User panel -->
     <div class="user-panel mt-3 pb-3 mb-3 d-flex">
       <div class="image">
         <img src="{% static 'dist/img/user2-160x160.jpg' %}" class="img-circle elevation-2" alt="User Image">
       </div>
       <div class="info">
         {% if request.user.is_authenticated %}
-          <a href="#" class="d-block">{{request.user.username}}</a>
+          <a href="#" class="d-block font-weight-bold">
+            {{ request.user.get_full_name|default:request.user.username }}
+          </a>
+          <small class="text-muted d-block">
+            {% if request.user.profile.department %}
+              <i class="fas fa-building mr-1"></i>{{ request.user.profile.department.name }}
+            {% else %}
+              <i class="fas fa-exclamation-triangle mr-1"></i>Chưa gán phòng ban
+            {% endif %}
+          </small>
+          <small class="text-success d-block">
+            <i class="fas fa-user-tag mr-1"></i>{% if perms.work.can_approve %}Quản lý{% else %}Nhân viên{% endif %}
+          </small>
         {% else %}
-          <a href="#" class="d-block">Alexander Pierce</a>
-        {% endif %}        
+          <a href="#" class="d-block">Khách</a>
+        {% endif %}
       </div>
     </div>
 
-    <!-- SidebarSearch Form -->
-    <div class="form-inline">
+    <!-- Search -->
+    <div class="form-inline mb-3">
       <div class="input-group" data-widget="sidebar-search">
-        <input class="form-control form-control-sidebar" type="search" placeholder="Search" aria-label="Search">
+        <input class="form-control form-control-sidebar" type="search" placeholder="Tìm kiếm..." aria-label="Search">
         <div class="input-group-append">
-          <button class="btn btn-sidebar">
-            <i class="fas fa-search fa-fw"></i>
-          </button>
+          <button class="btn btn-sidebar"><i class="fas fa-search fa-fw"></i></button>
         </div>
       </div>
     </div>
 
-    <!-- Sidebar Menu -->
+    <!-- Menu -->
     <nav class="mt-2">
-      {% include 'includes/menu-list.html' %}
+      <ul class="nav nav-pills nav-sidebar flex-column" data-widget="treeview" role="menu" data-accordion="false">
+
+        <li class="nav-item">
+          <a href="/" class="nav-link {% if request.path == '/' %}active{% endif %}">
+            <i class="nav-icon fas fa-tachometer-alt"></i><p>Bảng điều khiển</p>
+          </a>
+        </li>
+
+        <li class="nav-header mt-3"><i class="nav-icon fas fa-tasks mr-1"></i> QUẢN LÝ CÔNG VIỆC</li>
+
+        <li class="nav-item">
+          <a href="{% url 'create_task' %}" class="nav-link {% if request.path == '/create-task/' %}active{% endif %}">
+            <i class="nav-icon fas fa-plus-circle text-success"></i><p>Tạo công việc mới</p>
+          </a>
+        </li>
+
+        <li class="nav-item has-treeview {% if 'tien-do-thuc-hien' in request.path %}menu-open{% endif %}">
+          <a href="{% url 'task_list' %}" class="nav-link {% if 'tien-do-thuc-hien' in request.path %}active{% endif %}">
+            <i class="nav-icon fas fa-list-check"></i>
+            <p>Danh sách công việc<i class="right fas fa-angle-left"></i></p>
+          </a>
+          <ul class="nav nav-treeview">
+            <li class="nav-item">
+              <a href="{% url 'task_list' %}?tab=dang&dept=my"
+                 class="nav-link {% if request.GET.tab == 'dang' and request.GET.dept == 'my' %}active{% endif %}">
+                <i class="far fa-circle nav-icon text-primary"></i><p>Đang thực hiện</p>
+              </a>
+            </li>
+            <li class="nav-item">
+              <a href="{% url 'task_list' %}?tab=chua&dept=my"
+                 class="nav-link {% if request.GET.tab == 'chua' and request.GET.dept == 'my' %}active{% endif %}">
+                <i class="far fa-circle nav-icon text-warning"></i><p>Chưa hoàn thành</p>
+              </a>
+            </li>
+            <li class="nav-item">
+              <a href="{% url 'task_list' %}?tab=cho&dept=my"
+                 class="nav-link {% if request.GET.tab == 'cho' and request.GET.dept == 'my' %}active{% endif %}">
+                <i class="far fa-circle nav-icon text-info"></i><p>Chờ phê duyệt</p>
+              </a>
+            </li>
+            <li class="nav-item">
+              <a href="{% url 'task_list' %}?tab=xong&dept=my"
+                 class="nav-link {% if request.GET.tab == 'xong' and request.GET.dept == 'my' %}active{% endif %}">
+                <i class="far fa-circle nav-icon text-success"></i><p>Đã hoàn thành</p>
+              </a>
+            </li>
+
+            <li class="nav-item mt-2 mb-2">
+              <div class="nav-link disabled"><i class="nav-icon fas fa-minus"></i><p>────────────</p></div>
+            </li>
+
+            {% if perms.work.can_approve %}
+              <li class="nav-item">
+                <a href="{% url 'task_list' %}?tab=tat&dept=all"
+                   class="nav-link {% if request.GET.tab == 'tat' and request.GET.dept == 'all' %}active{% endif %}">
+                  <i class="far fa-dot-circle nav-icon text-danger"></i><p>Tất cả phòng ban</p>
+                </a>
+              </li>
+              <li class="nav-item">
+                <a href="{% url 'task_list' %}?tab=cho&dept=all"
+                   class="nav-link {% if request.GET.tab == 'cho' and request.GET.dept == 'all' %}active{% endif %}">
+                  <i class="far fa-dot-circle nav-icon" style="color:#fd7e14"></i><p>Duyệt toàn hệ thống</p>
+                </a>
+              </li>
+            {% endif %}
+
+            {% if perms.work.view_all_departments and not perms.work.can_approve %}
+              <li class="nav-item">
+                <a href="{% url 'task_list' %}?tab=tat&dept=all" class="nav-link">
+                  <i class="nav-icon fas fa-eye text-secondary"></i>
+                  <p>Xem tất cả (read-only)</p>
+                </a>
+              </li>
+            {% endif %}
+          </ul>
+        </li>
+
+        <li class="nav-header mt-3"><i class="nav-icon fas fa-user mr-1"></i> TÀI KHOẢN</li>
+        <li class="nav-item">
+          <a href="{% url 'password_change' %}" class="nav-link">
+            <i class="nav-icon fas fa-key text-warning"></i><p>Đổi mật khẩu</p>
+          </a>
+        </li>
+        <li class="nav-item">
+          <a href="{% url 'logout' %}" class="nav-link">
+            <i class="nav-icon fas fa-sign-out-alt text-danger"></i><p>Đăng xuất</p>
+          </a>
+        </li>
+      </ul>
     </nav>
-    <!-- /.sidebar-menu -->
   </div>
-  <!-- /.sidebar -->
 </aside>
+
+<style>
+.nav-header{
+  font-size:.8rem;text-transform:uppercase;letter-spacing:.5px;
+  padding:.5rem 1rem;margin-top:1rem;color:#6c757d!important;border-bottom:1px solid #4b545c;
+}
+.nav-link.active{background-color:#007bff;border-color:#007bff}
+</style>
+

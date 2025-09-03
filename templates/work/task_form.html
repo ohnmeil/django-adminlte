@@ -1,0 +1,108 @@
+{% extends "layouts/base.html" %}
+{% load static %}
+
+{% block content %}
+<section class="content">
+  <div class="container-fluid">
+    <form method="post" novalidate>
+      {% csrf_token %}
+
+      <div class="card card-primary card-outline">
+        <div class="card-header d-flex align-items-center justify-content-between">
+          <h3 class="card-title mb-0">
+            {% if title %}{{ title }}{% else %}Công việc{% endif %}
+          </h3>
+          <div class="text-muted small">
+            {% if request.user.profile and request.user.profile.department %}
+              <span class="badge badge-info p-2">
+                <i class="fas fa-building mr-1"></i>
+                Phòng ban của bạn: {{ request.user.profile.department.name }}
+              </span>
+            {% endif %}
+          </div>
+        </div>
+
+        <div class="card-body">
+          <div class="form-group">
+            <label><i class="fas fa-heading mr-1"></i> Tên công việc *</label>
+            {{ form.title }}
+            {% if form.title.errors %}<div class="invalid-feedback d-block">{{ form.title.errors|join:", " }}</div>{% endif %}
+          </div>
+
+          <div class="form-group">
+            <label><i class="fas fa-align-left mr-1"></i> Nội dung công việc</label>
+            {{ form.content }}
+            <small class="form-text text-muted">Mô tả chi tiết công việc cần thực hiện</small>
+            {% if form.content.errors %}<div class="invalid-feedback d-block">{{ form.content.errors|join:", " }}</div>{% endif %}
+          </div>
+
+          <div class="form-row">
+            <div class="form-group col-md-6">
+              <label><i class="fas fa-user-check mr-1"></i> Người phụ trách *</label>
+              {{ form.assignee }}
+              {% if form.assignee.errors %}<div class="invalid-feedback d-block">{{ form.assignee.errors|join:", " }}</div>{% endif %}
+            </div>
+            <div class="form-group col-md-6">
+              <label><i class="fas fa-user-friends mr-1"></i> Người hỗ trợ</label>
+              {{ form.supporters }}
+              <small class="form-text text-muted">Giữ Ctrl (Cmd) để chọn nhiều người</small>
+              {% if form.supporters.errors %}<div class="invalid-feedback d-block">{{ form.supporters.errors|join:", " }}</div>{% endif %}
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group col-md-6">
+              <label><i class="far fa-calendar-alt mr-1"></i> Deadline</label>
+              {{ form.deadline }}
+              <small class="form-text text-muted">Định dạng: YYYY-MM-DDThh:mm (giờ địa phương)</small>
+              {% if form.deadline.errors %}<div class="invalid-feedback d-block">{{ form.deadline.errors|join:", " }}</div>{% endif %}
+            </div>
+            <div class="form-group col-md-3">
+              <label><i class="far fa-clock mr-1"></i> Giờ ước tính</label>
+              {{ form.estimated_hours }}
+              {% if form.estimated_hours.errors %}<div class="invalid-feedback d-block">{{ form.estimated_hours.errors|join:", " }}</div>{% endif %}
+            </div>
+            <div class="form-group col-md-3">
+              <label><i class="fas fa-fire mr-1"></i> Độ ưu tiên</label>
+              {{ form.priority }}
+              {% if form.priority.errors %}<div class="invalid-feedback d-block">{{ form.priority.errors|join:", " }}</div>{% endif %}
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group col-md-6">
+              <label><i class="fas fa-percentage mr-1"></i> % Hoàn thành</label>
+              {{ form.progress }}
+              {% if form.progress.errors %}<div class="invalid-feedback d-block">{{ form.progress.errors|join:", " }}</div>{% endif %}
+            </div>
+            <div class="form-group col-md-6">
+              <label><i class="fas fa-info-circle mr-1"></i> Trạng thái</label>
+              {{ form.status }}
+              {% if form.status.errors %}<div class="invalid-feedback d-block">{{ form.status.errors|join:", " }}</div>{% endif %}
+            </div>
+          </div>
+
+          {{ form.department }}
+        </div>
+
+        <div class="card-footer d-flex justify-content-between">
+          <a href="{% url 'task_list' %}" class="btn btn-secondary">
+            <i class="fas fa-times mr-1"></i> Hủy bỏ
+          </a>
+          <button type="submit" class="btn btn-primary">
+            <i class="fas fa-save mr-1"></i> Lưu công việc
+          </button>
+        </div>
+      </div>
+    </form>
+  </div>
+</section>
+
+<style>
+input[type="datetime-local"].form-control {
+  line-height: 1.25;
+  height: calc(1.5em + .75rem + 2px);
+}
+</style>
+{% endblock %}
+

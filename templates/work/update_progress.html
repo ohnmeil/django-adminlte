@@ -1,0 +1,164 @@
+{% extends "layouts/base.html" %}
+{% load static %}
+
+{% block content %}
+<section class="content">
+  <div class="container-fluid">
+    <div class="card card-warning">
+      <div class="card-header">
+        <h3 class="card-title">
+          <i class="fas fa-sync-alt mr-2"></i>
+          Cập nhật tiến độ công việc
+        </h3>
+        <div class="card-tools">
+          <a href="{% url 'task_list' %}" class="btn btn-sm btn-secondary">
+            <i class="fas fa-arrow-left mr-1"></i> Quay lại danh sách
+          </a>
+        </div>
+      </div>
+
+      <div class="card-body">
+        <!-- Thông tin công việc -->
+        <div class="alert alert-info mb-4">
+          <h5 class="alert-heading mb-2">{{ task.title }}</h5>
+          <div class="row small mb-0">
+            <div class="col-md-3">
+              <i class="fas fa-building mr-1"></i> <strong>Phòng ban:</strong> {{ task.department }}
+            </div>
+            <div class="col-md-3">
+              <i class="fas fa-user-check mr-1"></i> <strong>Người PT:</strong> {{ task.assignee.get_full_name|default:task.assignee.username }}
+            </div>
+            <div class="col-md-3">
+              <i class="fas fa-flag mr-1"></i> <strong>Trạng thái:</strong> 
+              <span class="badge badge-{% if task.status == 'DONE' %}success{% elif task.status == 'PENDING' %}warning{% elif task.status == 'DOING' %}primary{% else %}secondary{% endif %}">
+                {{ task.get_status_display }}
+              </span>
+            </div>
+            <div class="col-md-3">
+              <i class="fas fa-chart-line mr-1"></i> <strong>Tiến độ:</strong> {{ task.progress }}%
+              <div class="progress progress-xs mt-1">
+                <div class="progress-bar bg-{% if task.progress == 100 %}success{% elif task.progress > 50 %}info{% else %}danger{% endif %}" 
+                     style="width: {{ task.progress }}%"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Form cập nhật -->
+        <div class="row">
+          <div class="col-md-6">
+            <div class="card">
+              <div class="card-header">
+                <h4 class="card-title mb-0">
+                  <i class="fas fa-edit mr-2"></i>Nhập thông tin cập nhật
+                </h4>
+              </div>
+              <div class="card-body">
+                <form method="post" novalidate>
+                  {% csrf_token %}
+
+                  <div class="form-group">
+                    <label for="{{ form.content.id_for_label }}" class="font-weight-bold">
+                      Nội dung cập nhật *
+                    </label>
+                    {{ form.content }}
+                    {% if form.content.errors %}
+                    <div class="text-danger small mt-1">{{ form.content.errors.0 }}</div>
+                    {% endif %}
+                    <small class="form-text text-muted">Mô tả chi tiết những gì đã hoàn thành</small>
+                  </div>
+
+                  <div class="form-group">
+                    <label for="{{ form.progress.id_for_label }}" class="font-weight-bold">
+                      % Hoàn thành mới
+                    </label>
+                    {{ form.progress }}
+                    {% if form.progress.errors %}
+                    <div class="text-danger small mt-1">{{ form.progress.errors.0 }}</div>
+                    {% endif %}
+                  </div>
+
+                  <div class="form-group">
+                    <button type="submit" class="btn btn-primary btn-block">
+                      <i class="fas fa-save mr-2"></i> Lưu cập nhật
+                    </button>
+                    <a href="{% url 'task_list' %}" class="btn btn-secondary btn-block mt-2">
+                      <i class="fas fa-times mr-2"></i> Hủy bỏ
+                    </a>
+                  </div>
+                </form>
+              </div>
+            </div>
+          </div>
+
+          <!-- Lịch sử cập nhật & Phản hồi -->
+          <div class="col-md-6">
+            <!-- Lịch sử cập nhật -->
+            <div class="card mb-3">
+              <div class="card-header">
+                <h4 class="card-title mb-0">
+                  <i class="fas fa-history mr-2"></i>Lịch sử cập nhật
+                </h4>
+              </div>
+              <div class="card-body p-0">
+                <div class="list-group list-group-flush" style="max-height: 250px; overflow-y: auto;">
+                  {% if updates %}
+                    {% for u in updates %}
+                    <div class="list-group-item">
+                      <div class="d-flex justify-content-between align-items-start">
+                        <div class="flex-grow-1">
+                          <div class="mb-1">{{ u.content|linebreaksbr }}</div>
+                          <small class="text-muted">
+                            <i class="far fa-clock mr-1"></i>{{ u.created_at|date:"d/m/Y H:i" }}
+                            • {{ u.user.get_full_name|default:u.user.username }}
+                          </small>
+                        </div>
+                        <span class="badge badge-info ml-2">{{ u.progress }}%</span>
+                      </div>
+                    </div>
+                    {% endfor %}
+                  {% else %}
+                    <div class="list-group-item text-center text-muted py-4">
+                      <i class="fas fa-inbox fa-2x mb-2"></i>
+                      <p class="mb-0">Chưa có cập nhật nào</p>
+                    </div>
+                  {% endif %}
+                </div>
+              </div>
+            </div>
+
+            <!-- Phản hồi quản lý -->
+            <div class="card">
+              <div class="card-header">
+                <h4 class="card-title mb-0">
+                  <i class="fas fa-comments mr-2"></i>Phản hồi quản lý
+                </h4>
+              </div>
+              <div class="card-body p-0">
+                <div class="list-group list-group-flush" style="max-height: 250px; overflow-y: auto;">
+                  {% if feedbacks %}
+                    {% for fb in feedbacks %}
+                    <div class="list-group-item">
+                      <div class="mb-1">{{ fb.content|linebreaksbr }}</div>
+                      <small class="text-muted">
+                        <i class="far fa-clock mr-1"></i>{{ fb.created_at|date:"d/m/Y H:i" }}
+                        • {{ fb.manager.get_full_name|default:fb.manager.username }}
+                      </small>
+                    </div>
+                    {% endfor %}
+                  {% else %}
+                    <div class="list-group-item text-center text-muted py-4">
+                      <i class="fas fa-inbox fa-2x mb-2"></i>
+                      <p class="mb-0">Chưa có phản hồi nào</p>
+                    </div>
+                  {% endif %}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}

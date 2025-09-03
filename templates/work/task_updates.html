@@ -1,0 +1,44 @@
+{% extends "layouts/base.html" %}
+{% block content %}
+<div class="container-fluid">
+  <h3>Cập nhật tiến độ: {{ task.title }}</h3>
+
+  <div class="row">
+    <div class="col-md-5">
+      <form method="post" class="card card-body mb-3">
+        {% csrf_token %}
+        <div class="form-group">
+          <label>Nội dung cập nhật</label>
+          {{ form.content }}
+        </div>
+        <div class="form-group">
+          <label>% hoàn thành</label>
+          {{ form.progress }}
+        </div>
+        <button class="btn btn-primary">Lưu cập nhật</button>
+        <a href="{% url 'task_list' %}" class="btn btn-light">Quay lại</a>
+      </form>
+    </div>
+
+    <div class="col-md-7">
+      <div class="card">
+        <div class="card-header">Lịch sử cập nhật</div>
+        <div class="card-body" style="max-height: 60vh; overflow:auto;">
+          {% for u in updates %}
+            <div class="mb-3 pb-2 border-bottom">
+              <div class="small text-muted">
+                {{ u.created_at|date:"d/m/Y H:i" }} • {{ u.user.get_full_name|default:u.user.username }}
+                • {{ u.progress }}%
+              </div>
+              <pre class="mb-0">{{ u.content }}</pre>
+            </div>
+          {% empty %}
+            <p class="text-muted mb-0">Chưa có cập nhật nào.</p>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+

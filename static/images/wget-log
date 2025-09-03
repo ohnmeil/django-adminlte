@@ -1,0 +1,6 @@
+--2025-08-28 09:09:43--  https://drive.google.com/uc?export=download
+Resolving drive.google.com (drive.google.com)... 74.125.68.113, 74.125.68.100, 74.125.68.102, ...
+Connecting to drive.google.com (drive.google.com)|74.125.68.113|:443... connected.
+HTTP request sent, awaiting response... 400 Bad Request
+2025-08-28 09:09:44 ERROR 400: Bad Request.
+

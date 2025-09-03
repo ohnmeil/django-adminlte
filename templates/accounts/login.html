@@ -1,77 +1,185 @@
-{% extends 'layouts/auth_base.html' %}
-
-{% block title %} Log in {% endblock title %}
-
-{% block bodyclass %} login-page {% endblock bodyclass %}
+{% extends "layouts/auth_base.html" %}
+{% load static %}
 
 {% block content %}
-<div class="login-box">
-  <div class="login-logo">
-    <a href="/"><b>Admin</b>LTE</a>
-  </div>
-  <!-- /.login-logo -->
-  <div class="card">
-    <div class="card-body login-card-body">
-      <p class="login-box-msg">Sign in to start your session</p>
+<div class="auth-wrapper">
+  <div class="auth-card">
+    <!-- Panel trái -->
+    <div class="auth-side">
+      <div class="brand">
+        <img src="{% static 'images/logo1.png' %}" alt="O³ Invest">
+        <div class="brand-title">O³ Invest</div>
+      </div>
+      <h3>Chào mừng quay lại! 👋</h3>
+      <p class="muted">Quản lý công việc mượt mà hơn, theo dõi tiến độ dễ dàng.</p>
 
-      <form method="post">
+      <div class="illus">
+        <img src="{% static 'images/logofull.png' %}" alt="O³ Invest"
+             onerror="this.src='{% static 'images/logo1.png' %}';this.style.maxWidth='200px'">
+      </div>
+
+      <div class="version">Phiên bản 1.0.0</div>
+    </div>
+
+    <!-- Form -->
+    <div class="auth-form">
+      <h4 class="title">Đăng nhập hệ thống</h4>
+      <p class="subtitle">Nhập thông tin đăng nhập để tiếp tục</p>
+
+      <form method="post" novalidate>
         {% csrf_token %}
+        {% if next %}<input type="hidden" name="next" value="{{ next }}">{% endif %}
 
         {% if form.non_field_errors %}
-          {% for error in form.non_field_errors  %}
-            <small class="text-danger mb-3">{{ error }}</small>
-          {% endfor %}
+          <div class="alert alert-danger">
+            <i class="fas fa-exclamation-triangle mr-1"></i>{{ form.non_field_errors|join:", " }}
+          </div>
         {% endif %}
 
-        {% for field in form %}
-        <div class="input-group mb-3">
-          {{field}}
-          <div class="input-group-append">
-            <div class="input-group-text">
-              <span class="fas {% if field.name == 'username' %} fa-user {% else %}  fa-lock {% endif %}"></span>
-            </div>
-          </div>
+        <!-- Username -->
+        <label class="form-label">Tên đăng nhập</label>
+        <div class="input-wrap">
+          <i class="fas fa-user"></i>
+          <input type="text" name="username" value="{{ form.username.value|default_if_none:'' }}"
+                 placeholder="Tên đăng nhập" autocomplete="username" required autofocus>
         </div>
-        <small class="text-danger">{{ field.errors }}</small>
-        {% endfor %}
-        <div class="row">
-          <div class="col-8">
-            <div class="icheck-primary">
-              <input type="checkbox" id="remember">
-              <label for="remember">
-                Remember Me
-              </label>
-            </div>
-          </div>
-          <!-- /.col -->
-          <div class="col-4">
-            <button type="submit" class="btn btn-primary btn-block">Sign In</button>
-          </div>
-          <!-- /.col -->
+        {% if form.username.errors %}
+          <div class="field-error">{{ form.username.errors|join:", " }}</div>
+        {% endif %}
+
+        <!-- Password -->
+        <label class="form-label">Mật khẩu</label>
+        <div class="input-wrap">
+          <i class="fas fa-lock"></i>
+          <input type="password" name="password" placeholder="Mật khẩu"
+                 autocomplete="current-password" required>
+          <button type="button" class="toggle-password" aria-label="Hiện/ẩn mật khẩu">
+            <i class="fas fa-eye"></i>
+          </button>
         </div>
+        {% if form.password.errors %}
+          <div class="field-error">{{ form.password.errors|join:", " }}</div>
+        {% endif %}
+
+        <div class="row-line">
+          <label class="checkbox">
+            <input type="checkbox" name="remember" {% if request.POST.remember %}checked{% endif %}>
+            <span>Ghi nhớ đăng nhập</span>
+          </label>
+
+          {% url 'password_reset' as pwd_reset_url %}
+          {% if pwd_reset_url %}
+            <a class="link" href="{{ pwd_reset_url }}"><i class="fas fa-key mr-1"></i>Quên mật khẩu?</a>
+          {% endif %}
+        </div>
+
+        <button type="submit" class="btn-primary">
+          <i class="fas fa-sign-in-alt mr-2"></i>Đăng nhập
+        </button>
       </form>
 
-      <!--
-      <div class="social-auth-links text-center mb-3">
-        <p>- OR -</p>
-        <a href="#" class="btn btn-block btn-primary">
-          <i class="fab fa-facebook mr-2"></i> Sign in using Facebook
-        </a>
-        <a href="#" class="btn btn-block btn-danger">
-          <i class="fab fa-google-plus mr-2"></i> Sign in using Google+
-        </a>
-      </div>
-      -->
-      <!-- /.social-auth-links -->
+      <div class="divider"><span>Hoặc</span></div>
 
-      <p class="mt-5 mb-2 text-center">
-        <a href="{% url 'password_reset' %}">Reset Pass</a>
-        &bull;
-        <a href="{% url 'register' %}" class="text-center">Sign UP</a>
-      </p>
+      <div class="socials">
+        <a href="#" class="btn-outline"><i class="fab fa-google mr-2"></i>Đăng nhập với Google</a>
+        <a href="#" class="btn-outline alt"><i class="fab fa-microsoft mr-2"></i>Đăng nhập với Microsoft</a>
+      </div>
+
+      <div class="copyright">
+        &copy; 2024 Hệ thống Quản lý Công việc. All rights reserved.
+      </div>
     </div>
-    <!-- /.login-card-body -->
   </div>
 </div>
-
 {% endblock %}
+
+{% block extra_css %}
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
+.auth-wrapper{width:100%;display:flex;align-items:center;justify-content:center}
+.auth-card{width:min(1024px,96vw);background:#fff;border-radius:18px;overflow:hidden;box-shadow:0 30px 60px rgba(0,0,0,.2);display:grid;grid-template-columns:1.1fr 1fr;animation:fadeIn .6s ease-out}
+@keyframes fadeIn{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+.auth-side{background:linear-gradient(135deg,rgba(102,126,234,.9),rgba(118,75,162,.9));padding:40px 36px 28px;position:relative;min-height:580px;display:flex;flex-direction:column;justify-content:center}
+.auth-side .brand{display:flex;align-items:center;gap:12px;margin-bottom:24px}
+.auth-side .brand img{width:50px;height:50px;border-radius:50%;filter:drop-shadow(0 6px 10px rgba(0,0,0,.15));background:#fff;padding:5px}
+.auth-side .brand-title{font-size:24px;color:#fff;letter-spacing:.3px;font-weight:700}
+.auth-side h3{color:#fff;margin:6px 0 12px;font-weight:700;font-size:24px}
+.auth-side .muted{color:rgba(255,255,255,.85);margin:0 0 24px;font-size:16px;line-height:1.5}
+.auth-side .illus{border-radius:16px;min-height:220px;background:linear-gradient(135deg,rgba(255,255,255,.18),rgba(255,255,255,.05));display:flex;align-items:center;justify-content:center;overflow:hidden;margin:20px 0}
+.auth-side .illus img{max-width:85%;height:auto;filter:drop-shadow(0 5px 15px rgba(0,0,0,.1))}
+.auth-side .version{position:absolute;bottom:14px;left:36px;color:#fff;opacity:.9;font-size:.9rem}
+.auth-form{padding:40px 36px 28px;display:flex;flex-direction:column;justify-content:center}
+.auth-form .title{font-weight:700;margin-bottom:8px;font-size:24px;color:#333}
+.auth-form .subtitle{color:#6c757d;margin-bottom:24px;font-size:15px}
+.alert{padding:12px 16px;border-radius:10px;margin-bottom:20px;background:#fdecea;color:#b71c1c;border-left:4px solid #b71c1c;display:flex;align-items:center}
+.alert i{margin-right:8px}
+.form-label{font-size:14px;color:#495057;margin:.35rem 0 .5rem;font-weight:500}
+.input-wrap{display:flex;align-items:center;gap:10px;border:1px solid #e2e6ea;border-radius:10px;padding:.8rem 1rem;background:#fff;transition:all .3s ease;position:relative;margin-bottom:8px}
+.input-wrap:focus-within{border-color:#667eea;box-shadow:0 0 0 3px rgba(102,126,234,.1)}
+.input-wrap i{color:#6c757d;font-size:16px}
+.input-wrap input{width:100%;border:none;outline:none;font-size:16px;background:transparent;color:#495057}
+.input-wrap input::placeholder{color:#adb5bd}
+.toggle-password{border:none;background:transparent;cursor:pointer;padding:0 .25rem;color:#6c757d;transition:color .2s}
+.toggle-password:hover{color:#667eea}
+.field-error{color:#d9534f;font-size:13px;margin:0 0 16px;display:flex;align-items:center}
+.field-error::before{content:"⚠";margin-right:5px}
+.row-line{display:flex;align-items:center;justify-content:space-between;margin:16px 0 24px;flex-wrap:wrap;gap:10px}
+.checkbox{display:flex;align-items:center;gap:8px;color:#495057;font-size:14px;cursor:pointer}
+.checkbox input{width:16px;height:16px;cursor:pointer}
+.link{font-size:14px;text-decoration:none;color:#667eea;transition:color .2s;display:flex;align-items:center}
+.link:hover{color:#5a67d8;text-decoration:underline}
+.btn-primary{background:linear-gradient(45deg,#667eea,#764ba2);border:none;color:#fff;padding:1rem 1.5rem;border-radius:10px;font-weight:600;display:inline-flex;align-items:center;justify-content:center;transition:all .3s ease;width:100%;font-size:16px;cursor:pointer;box-shadow:0 4px 12px rgba(102,126,234,.3)}
+.btn-primary:hover{transform:translateY(-2px);box-shadow:0 8px 20px rgba(102,126,234,.4)}
+.divider{display:flex;align-items:center;gap:12px;margin:24px 0;color:#6c757d;font-size:14px}
+.divider::before,.divider::after{content:"";height:1px;background:#e9ecef;flex:1}
+.socials{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:24px}
+.btn-outline{border:1px solid #ced4da;border-radius:10px;background:#fff;padding:.75rem 1rem;display:flex;align-items:center;justify-content:center;gap:8px;color:#495057;text-decoration:none;transition:all .3s ease;font-size:14px;font-weight:500}
+.btn-outline:hover{transform:translateY(-1px);box-shadow:0 6px 12px rgba(0,0,0,.08);border-color:#adb5bd}
+.btn-outline.alt{border-color:#bcd0ff}
+.btn-outline.alt:hover{border-color:#8fa8e6}
+.copyright{margin-top:20px;color:#6c757d;font-size:13px;text-align:center}
+.mr-1{margin-right:.25rem}.mr-2{margin-right:.5rem}
+@media (max-width:960px){.auth-card{grid-template-columns:1fr;max-width:500px}.auth-side{order:2;border-top:1px solid rgba(255,255,255,.2);min-height:auto;padding:30px}.auth-form{order:1;padding:30px}.socials{grid-template-columns:1fr}}
+@media (max-width:576px){.auth-card{width:100%;border-radius:12px}.auth-form,.auth-side{padding:24px}.row-line{flex-direction:column;align-items:flex-start}.auth-side .illus{min-height:180px}}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  // Toggle password
+  const btn = document.querySelector('.toggle-password');
+  if (btn) {
+    btn.addEventListener('click', function () {
+      const ip = document.querySelector('input[name="password"]');
+      if (!ip) return;
+      ip.type = (ip.type === 'password') ? 'text' : 'password';
+      const icon = this.querySelector('i');
+      icon.classList.toggle('fa-eye');
+      icon.classList.toggle('fa-eye-slash');
+    });
+  }
+
+  // Prevent double submit
+  const form = document.querySelector('form');
+  if (form) {
+    form.addEventListener('submit', function () {
+      const sb = this.querySelector('.btn-primary');
+      if (sb) { sb.disabled = true; sb.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Đang đăng nhập...'; }
+    });
+  }
+
+  // Focus animation
+  document.querySelectorAll('input').forEach(ip => {
+    ip.addEventListener('focus', () => {
+      const wrap = ip.closest('.input-wrap'); if (wrap){ wrap.style.transform='translateY(-2px)'; wrap.style.boxShadow='0 6px 15px rgba(0,0,0,.1)';}
+    });
+    ip.addEventListener('blur', () => {
+      const wrap = ip.closest('.input-wrap'); if (wrap){ wrap.style.transform='translateY(0)'; wrap.style.boxShadow='none';}
+    });
+  });
+});
+</script>
+{% endblock %}
+

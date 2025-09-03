@@ -1,0 +1,93 @@
+{% extends "layouts/base.html" %}
+{% load static %}
+
+{% block content %}
+<section class="content">
+  <div class="container-fluid">
+    <div class="card card-info">
+      <div class="card-header">
+        <h3 class="card-title">
+          <i class="fas fa-tasks mr-2"></i>
+          Cập nhật tiến độ
+        </h3>
+        <div class="card-tools">
+          <a href="{% url 'task_list' %}" class="btn btn-sm btn-secondary">
+            <i class="fas fa-arrow-left mr-1"></i> Quay lại
+          </a>
+        </div>
+      </div>
+
+      <form method="post" novalidate>
+        {% csrf_token %}
+        
+        <div class="card-body">
+          <!-- Thông tin công việc -->
+          <div class="alert alert-primary">
+            <h6 class="alert-heading mb-2">
+              <i class="fas fa-clipboard-check mr-2"></i> {{ task.title }}
+            </h6>
+            <div class="row small mb-0">
+              <div class="col-md-4"><strong>Phòng ban:</strong> {{ task.department }}</div>
+              <div class="col-md-4"><strong>Người PT:</strong> {{ task.assignee.get_full_name|default:task.assignee.username }}</div>
+              <div class="col-md-4"><strong>Tiến độ hiện tại:</strong> {{ task.progress }}%</div>
+            </div>
+          </div>
+
+          <div class="row">
+            <!-- Nội dung cập nhật -->
+            <div class="col-12">
+              <div class="form-group">
+                <label for="{{ form.content.id_for_label }}" class="font-weight-bold">
+                  <i class="fas fa-edit mr-1"></i> Nội dung cập nhật *
+                </label>
+                {{ form.content }}
+                {% if form.content.errors %}
+                <div class="text-danger small mt-1">{{ form.content.errors.0 }}</div>
+                {% endif %}
+                <small class="form-text text-muted">Mô tả những gì đã thực hiện hoặc gặp khó khăn</small>
+              </div>
+            </div>
+
+            <!-- Tiến độ mới -->
+            <div class="col-md-4">
+              <div class="form-group">
+                <label for="{{ form.progress.id_for_label }}" class="font-weight-bold">
+                  <i class="fas fa-chart-line mr-1"></i> % Hoàn thành mới
+                </label>
+                {{ form.progress }}
+                {% if form.progress.errors %}
+                <div class="text-danger small mt-1">{{ form.progress.errors.0 }}</div>
+                {% endif %}
+              </div>
+            </div>
+
+            <!-- Trạng thái mới -->
+            <div class="col-md-4">
+              <div class="form-group">
+                <label for="{{ form.status.id_for_label }}" class="font-weight-bold">
+                  <i class="fas fa-flag mr-1"></i> Trạng thái mới
+                </label>
+                {{ form.status }}
+                {% if form.status.errors %}
+                <div class="text-danger small mt-1">{{ form.status.errors.0 }}</div>
+                {% endif %}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card-footer">
+          <div class="d-flex justify-content-between">
+            <a href="{% url 'task_list' %}" class="btn btn-secondary">
+              <i class="fas fa-times mr-1"></i> Hủy bỏ
+            </a>
+            <button type="submit" class="btn btn-success">
+              <i class="fas fa-sync-alt mr-1"></i> Cập nhật tiến độ
+            </button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+</section>
+{% endblock %}

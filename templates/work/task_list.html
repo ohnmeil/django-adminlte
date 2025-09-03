@@ -1,0 +1,406 @@
+{% extends "layouts/base.html" %}
+{% load static %}
+
+{% block content %}
+<section class="content">
+  <div class="container-fluid">
+    <div class="card card-primary card-outline">
+      <div class="card-header d-flex align-items-center justify-content-between">
+        <h3 class="card-title mb-0 d-flex align-items-center">
+          <i class="fas fa-tasks mr-2"></i> Tiến độ thực hiện công việc
+          {% if readonly_mode %}
+            <span class="badge badge-secondary ml-2">READ-ONLY</span>
+          {% endif %}
+        </h3>
+
+        <div class="card-tools d-flex align-items-center">
+          {% if can_view_all %}
+          <div class="btn-group mr-2" role="group" aria-label="dept-filter">
+            <a href="?tab={{ tab }}&dept=my"
+               class="btn btn-sm {% if dept != 'all' %}btn-primary{% else %}btn-outline-primary{% endif %}">
+              <i class="fas fa-building mr-1"></i> Phòng ban của tôi
+            </a>
+            <a href="?tab={{ tab }}&dept=all"
+               class="btn btn-sm {% if dept == 'all' %}btn-primary{% else %}btn-outline-primary{% endif %}">
+              <i class="fas fa-eye mr-1"></i> Xem tất cả
+            </a>
+          </div>
+          {% endif %}
+
+          <a href="{% url 'create_task' %}" class="btn btn-sm btn-primary">
+            <i class="fas fa-plus-circle mr-1"></i> Tạo công việc mới
+          </a>
+        </div>
+      </div>
+
+      <div class="card-body">
+
+        <!-- Tabs -->
+        <ul class="nav nav-pills mb-3">
+          <li class="nav-item">
+            <a class="nav-link {% if tab == 'dang' %}active{% endif %}" href="?tab=dang&dept={{ dept|default:'my' }}">
+              <i class="fas fa-spinner mr-1"></i> Đang thực hiện
+            </a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link {% if tab == 'cho' %}active{% endif %}" href="?tab=cho&dept={{ dept|default:'my' }}">
+              <i class="fas fa-hourglass-half mr-1"></i> Chờ phê duyệt
+            </a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link {% if tab == 'chua' %}active{% endif %}" href="?tab=chua&dept={{ dept|default:'my' }}">
+              <i class="fas fa-times-circle mr-1"></i> Chưa hoàn thành
+            </a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link {% if tab == 'xong' %}active{% endif %}" href="?tab=xong&dept={{ dept|default:'my' }}">
+              <i class="fas fa-check-circle mr-1"></i> Đã hoàn thành
+            </a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link {% if tab == 'tat' %}active{% endif %}" href="?tab=tat&dept={{ dept|default:'my' }}">
+              <i class="fas fa-list mr-1"></i> Tất cả
+            </a>
+          </li>
+        </ul>
+
+        <!-- Tiêu đề / trạng thái -->
+        <div class="alert alert-info mb-3 d-flex align-items-center justify-content-between">
+          <div>
+            <h5 class="alert-heading mb-1">
+              {% if tab == 'xong' %}
+                <i class="fas fa-check-circle text-success mr-1"></i> Công việc đã hoàn thành
+              {% elif tab == 'cho' %}
+                <i class="fas fa-hourglass-half text-warning mr-1"></i> Công việc chờ phê duyệt
+              {% elif tab == 'chua' %}
+                <i class="fas fa-times-circle text-danger mr-1"></i> Công việc chưa hoàn thành
+              {% elif tab == 'dang' %}
+                <i class="fas fa-spinner text-primary mr-1"></i> Công việc đang thực hiện
+              {% else %}
+                <i class="fas fa-list text-secondary mr-1"></i> Tất cả công việc
+              {% endif %}
+            </h5>
+            <p class="mb-0 small">Tổng số: <strong>{{ tasks|length }}</strong> công việc</p>
+          </div>
+          <div class="small text-muted">
+            {% if dept == 'all' %}
+              Bộ lọc: <span class="badge badge-secondary">Tất cả (read-only)</span>
+            {% else %}
+              Bộ lọc: <span class="badge badge-primary">Phòng ban của tôi</span>
+            {% endif %}
+          </div>
+        </div>
+
+        <!-- Bảng -->
+        <div class="table-responsive">
+          <table class="table table-hover table-striped table-bordered mb-0">
+            <thead class="thead-light">
+              <tr>
+                <th class="col-stt text-center">STT</th>
+                <th class="col-title">Tên công việc</th>
+                <th class="col-content">Nội dung</th>
+                <th class="col-dept">Phòng ban</th>
+                <th class="col-assignee">Người PT</th>
+                <th class="col-progress text-center">Progress</th>
+                <th class="col-updates">Cập nhật tiến độ</th>
+                <th class="col-support">Hỗ trợ</th>
+                <th class="col-deadline text-center">Deadline</th>
+                <th class="col-feedback">Phản hồi</th>
+                <th class="col-actions text-center">Thao tác</th>
+              </tr>
+            </thead>
+
+            <tbody>
+            {% for t in tasks %}
+              <tr>
+                <!-- STT -->
+                <td class="text-center align-middle">{{ forloop.counter }}</td>
+
+                <!-- Tên công việc -->
+                <td class="align-middle">
+                  <strong class="d-block text-truncate" title="{{ t.title }}">{{ t.title }}</strong>
+                  <div class="mt-1">
+                    {% if t.status == 'DONE' %}
+                      <span class="badge badge-success">Hoàn thành</span>
+                    {% elif t.status == 'PENDING' %}
+                      <span class="badge badge-warning">Chờ duyệt</span>
+                    {% elif t.status == 'DOING' %}
+                      <span class="badge badge-primary">Đang thực hiện</span>
+                    {% else %}
+                      <span class="badge badge-secondary">Chưa bắt đầu</span>
+                    {% endif %}
+                    {% if t.priority == 'URGENT' %}
+                      <span class="badge badge-danger">Khẩn cấp</span>
+                    {% elif t.priority == 'HIGH' %}
+                      <span class="badge badge-warning">Cao</span>
+                    {% elif t.priority == 'MEDIUM' %}
+                      <span class="badge badge-info">Trung bình</span>
+                    {% elif t.priority == 'LOW' %}
+                      <span class="badge badge-secondary">Thấp</span>
+                    {% endif %}
+                  </div>
+                </td>
+
+                <!-- Nội dung (xuống dòng đẹp) -->
+                <td class="td-top">
+                  <div class="cell-multiline" title="{{ t.content|default:'—' }}">
+                    {{ t.content|default:"—" }}
+                  </div>
+                </td>
+
+                <!-- Phòng ban -->
+                <td class="align-middle">
+                  <span class="badge badge-dark text-truncate d-inline-block" style="max-width: 100%;">{{ t.department|default:"—" }}</span>
+                </td>
+
+                <!-- Người phụ trách -->
+                <td class="align-middle">
+                  <span class="badge badge-info text-truncate d-inline-block" style="max-width: 90px;"
+                        title="{{ t.assignee.get_full_name|default:t.assignee.username }}">
+                    {{ t.assignee.get_short_name|default:t.assignee.username }}
+                  </span>
+                </td>
+
+                <!-- % hoàn thành -->
+                <td class="text-center align-middle">
+                  <div class="progress progress-strong mb-1">
+                    <div class="progress-bar {% if t.progress == 100 %}bg-success{% elif t.progress > 50 %}bg-primary{% else %}bg-warning{% endif %}"
+                         style="width: {{ t.progress }}%"></div>
+                  </div>
+                  <span class="badge {% if t.progress == 100 %}badge-success{% elif t.progress > 50 %}badge-primary{% else %}badge-warning{% endif %}">
+                    {{ t.progress }}%
+                  </span>
+                </td>
+
+                <!-- Cập nhật tiến độ -->
+                <td class="td-updates">
+                  <div class="updates-cell">
+                    {% with last=t.updates.all|first %}
+                      <div class="update-card">
+                        {% if last %}
+                          <div class="uc-row">
+                            <span class="uc-time">{{ last.created_at|date:"d/m H:i" }}</span>
+                            <span class="badge badge-info uc-badge">{{ last.progress }}%</span>
+                          </div>
+                          <div class="uc-meta">{{ last.user.get_short_name|default:last.user.username }}</div>
+                          {% if last.content %}
+                            <div class="uc-note" title="{{ last.content }}">{{ last.content }}</div>
+                          {% endif %}
+                        {% else %}
+                          <div class="uc-empty">Chưa có cập nhật</div>
+                        {% endif %}
+                      </div>
+                    {% endwith %}
+
+                    {% if not readonly_mode %}
+                      <!-- form inline (ẩn) -->
+                      <div id="upd{{ t.pk }}" class="collapse mt-2">
+                        <form method="post" action="{% url 'update_progress' t.pk %}" class="p-2 border rounded bg-light">
+                          {% csrf_token %}
+                          <div class="d-flex align-items-center mb-2">
+                            <input type="number" name="progress" value="{{ t.progress }}" min="0" max="100"
+                                   class="form-control form-control-sm mr-2" style="width: 60px;">
+                            <button class="btn btn-compact btn-primary" type="submit">Lưu</button>
+                          </div>
+                          <textarea name="content" rows="2" class="form-control form-control-sm"
+                                    placeholder="Ghi chú cập nhật..."></textarea>
+                        </form>
+                      </div>
+                    {% endif %}
+
+                    <!-- nút dưới cùng -->
+                    <div class="update-actions">
+                      {% if not readonly_mode %}
+                        <button class="btn btn-compact btn-primary" data-toggle="collapse" data-target="#upd{{ t.pk }}">Cập nhật</button>
+                      {% endif %}
+                      <a class="btn btn-compact btn-outline-secondary" href="{% url 'task_updates' t.pk %}">Chi tiết</a>
+                    </div>
+                  </div>
+                </td>
+
+                <!-- Hỗ trợ -->
+                <td class="align-middle">
+                  {% for u in t.supporters.all %}
+                    <span class="badge badge-secondary d-block mb-1 text-truncate" style="max-width: 90px;"
+                          title="{{ u.get_full_name|default:u.username }}">
+                      {{ u.get_short_name|default:u.username }}
+                    </span>
+                  {% empty %}
+                    <span class="text-muted">—</span>
+                  {% endfor %}
+                </td>
+
+                <!-- Deadline -->
+                <td class="text-center align-middle">
+                  {% if t.deadline %}
+                    {% if t.is_overdue %}
+                      <span class="badge badge-danger" title="Quá hạn!">
+                        <i class="fas fa-exclamation-triangle mr-1"></i>{{ t.deadline|date:"d/m/Y" }}
+                      </span>
+                    {% elif t.is_due_today %}
+                      <span class="badge badge-warning" title="Hạn hôm nay!">
+                        <i class="fas fa-clock mr-1"></i>{{ t.deadline|date:"d/m/Y" }}
+                      </span>
+                    {% else %}
+                      <span class="badge badge-success">
+                        <i class="far fa-calendar-alt mr-1"></i>{{ t.deadline|date:"d/m/Y" }}
+                      </span>
+                    {% endif %}
+                    <br>
+                    <small class="text-muted">
+                      {% with dr=t.days_until_deadline %}
+                        {% if dr < 0 %}
+                          Quá {{ dr|stringformat:"d"|slice:"1:" }} ngày
+                        {% elif dr == 0 %}
+                          Hôm nay
+                        {% else %}
+                          Còn {{ dr }} ngày
+                        {% endif %}
+                      {% endwith %}
+                    </small>
+                  {% else %}
+                    <span class="text-muted">—</span>
+                  {% endif %}
+                </td>
+
+                <!-- Phản hồi -->
+                <td class="align-top">
+                  {% with last_feedback=t.manager_feedbacks.all|first %}
+                    {% if last_feedback %}
+                      <div class="border rounded p-1 bg-light">
+                        <div class="small text-muted">{{ last_feedback.created_at|date:"d/m" }}</div>
+                        <div class="small cell-multiline" title="{{ last_feedback.content }}">{{ last_feedback.content }}</div>
+                        <small class="text-muted">- {{ last_feedback.manager.get_short_name|default:last_feedback.manager.username }}</small>
+                      </div>
+                    {% else %}
+                      <span class="text-muted">—</span>
+                    {% endif %}
+                  {% endwith %}
+                </td>
+
+                <!-- Thao tác -->
+                <td class="text-center align-middle">
+                  {% if readonly_mode %}
+                    <a class="btn btn-sm btn-outline-secondary" href="{% url 'task_updates' t.pk %}" title="Xem chi tiết">
+                      <i class="fas fa-eye"></i>
+                    </a>
+                  {% else %}
+                    <div class="btn-group-vertical btn-group-sm">
+                      <a class="btn btn-info mb-1" href="{% url 'edit_task' t.pk %}" title="Sửa công việc">
+                        <i class="fas fa-edit"></i>
+                      </a>
+
+                      {% if perms.work.can_approve and t.status != 'DONE' %}
+                      <form method="post" action="{% url 'approve_task' t.pk %}" class="d-inline mb-1">
+                        {% csrf_token %}
+                        <button class="btn btn-success" title="Phê duyệt">
+                          <i class="fas fa-check"></i>
+                        </button>
+                      </form>
+                      {% endif %}
+
+                      {% if perms.work.can_approve or t.assigned_by_id == request.user.id %}
+                      <form method="post" action="{% url 'delete_task' t.id %}" class="d-inline"
+                            onsubmit="return confirm('Xóa công việc {{ t.title }}?');">
+                        {% csrf_token %}
+                        <button class="btn btn-danger" title="Xóa">
+                          <i class="fas fa-trash"></i>
+                        </button>
+                      </form>
+                      {% endif %}
+                    </div>
+                  {% endif %}
+                </td>
+              </tr>
+            {% empty %}
+              <tr>
+                <td colspan="11" class="text-center py-4">
+                  <i class="fas fa-inbox fa-2x text-muted mb-2"></i>
+                  <p class="text-muted mb-0">Không có công việc nào</p>
+                </td>
+              </tr>
+            {% endfor %}
+            </tbody>
+          </table>
+        </div>
+
+      </div>
+
+      <div class="card-footer d-flex justify-content-between">
+        <p class="text-muted small mb-0">Hiển thị <strong>{{ tasks|length }}</strong> công việc</p>
+        {% if readonly_mode %}
+          <span class="text-muted small"><i class="fas fa-eye mr-1"></i>Đang xem ở chế độ read-only</span>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</section>
+
+<style>
+/* Bảng responsive */
+.table-responsive{ overflow-x:auto !important; -webkit-overflow-scrolling:touch; }
+.table{ min-width:1380px; table-layout:fixed; }
+
+/* Cell mặc định */
+.table th,.table td{ vertical-align:middle; padding:.5rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+
+/* Nội dung sát đỉnh */
+.td-top{ vertical-align:top !important; }
+
+/* Cột dài cho phép xuống dòng */
+.cell-multiline{ white-space:pre-line; word-break:break-word; overflow-wrap:anywhere; }
+
+/* Kích thước cột */
+.col-stt{width:50px;}
+.col-title{width:140px;}
+.col-content{width:280px;}
+.col-dept{width:100px;}
+.col-assignee{width:90px;}
+.col-progress{width:110px; text-align:center;}
+.col-updates{width:240px;}
+.col-support{width:90px;}
+.col-deadline{width:140px; text-align:center;}
+.col-feedback{width:170px;}
+.col-actions{width:80px; white-space:nowrap;}
+
+/* Progress rõ hơn */
+.progress-strong{
+  height:12px; border:1px solid #dbe1ea; background:#eef2f7;
+  border-radius:999px; overflow:hidden;
+}
+.progress-strong .progress-bar{ height:100%; border-radius:999px; box-shadow:inset 0 -1px 0 rgba(0,0,0,.12); }
+
+/* ===== Cột cập nhật: top card + bottom actions ===== */
+.td-updates{ padding:.5rem; vertical-align:top !important; }
+.updates-cell{
+  display:flex; flex-direction:column; min-height:48px; height:100%;
+}
+.update-card{
+  border:1px solid #e9ecef; background:#fff; border-radius:8px;
+  padding:.4rem .55rem; max-height:72px; overflow:hidden;
+}
+.uc-row{ display:flex; align-items:center; justify-content:space-between; margin-bottom:.1rem; font-weight:600; }
+.uc-badge{ margin-left:.5rem; }
+.uc-time{ font-size:.85rem; color:#6c757d; }
+.uc-meta{ font-size:.8rem; color:#6c757d; margin-bottom:.05rem; }
+.uc-note{
+  display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical;
+  overflow:hidden; word-break:break-word; white-space:normal; line-height:1.25;
+}
+.uc-empty{ font-size:.85rem; color:#6c757d; text-align:center; padding:.2rem 0; }
+
+/* nút dưới cùng */
+.update-actions{
+  display:flex; gap:.35rem; margin-top:auto; align-self:flex-start;
+}
+.btn-compact{ padding:.18rem .5rem; font-size:.75rem; line-height:1; }
+
+/* Badge nhỏ */
+.badge{white-space:normal; line-height:1.2; font-size:.75em; padding:.3em .5em; margin:.1em;}
+
+/* Ẩn bớt cột phụ trên màn nhỏ */
+@media (max-width:1200px){ .col-support,.col-deadline{display:none;} }
+@media (max-width:768px){ .table{font-size:.85rem;} .btn-compact{padding:.16rem .45rem;} }
+</style>
+{% endblock %}
+

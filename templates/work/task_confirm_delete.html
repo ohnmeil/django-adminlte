@@ -1,0 +1,14 @@
+{% extends "layouts/base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+  <h2>Xác nhận xóa công việc</h2>
+  <p>Bạn có chắc chắn muốn xóa công việc <strong>{{ task.title }}</strong> không?</p>
+  <form method="post">
+    {% csrf_token %}
+    <button type="submit" class="btn btn-danger">Xóa</button>
+    <a href="{% url 'task_list' %}" class="btn btn-secondary">Hủy</a>
+  </form>
+</div>
+{% endblock %}
+

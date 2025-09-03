@@ -1,32 +1,33 @@
-<!DOCTYPE html>
 {% load static %}
-<html lang="en">
+<!DOCTYPE html>
+<html lang="vi">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>AdminLTE 3 | {% block title %}{% endblock title %}</title>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <title>{% block title %}Đăng nhập{% endblock %}</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="icon" href="{% static 'dist/img/favicon.ico' %}" type="image/x-icon">
 
-  <!-- Google Font: Source Sans Pro -->
+  <!-- Font & AdminLTE -->
   <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Source+Sans+Pro:300,400,400i,700&display=fallback">
-  <!-- Font Awesome -->
   <link rel="stylesheet" href="{% static 'plugins/fontawesome-free/css/all.min.css' %}">
-  <!-- icheck bootstrap -->
-  <link rel="stylesheet" href="{% static 'plugins/icheck-bootstrap/icheck-bootstrap.min.css' %}">
-  <!-- Theme style -->
   <link rel="stylesheet" href="{% static 'dist/css/adminlte.min.css' %}">
+  <!-- Optional plugins you still want available -->
+  <link rel="stylesheet" href="{% static 'plugins/toastr/toastr.min.css' %}">
+  <link rel="stylesheet" href="{% static 'custom.css' %}">
+
+  {% block extra_css %}{% endblock %}
 </head>
-<body class="hold-transition {% block bodyclass %}{% endblock bodyclass %}">
 
-  {% block content %}{% endblock content %}
+<!-- KHÔNG có sidebar/navbar ở base auth -->
+<body class="hold-transition">
+  {% block content %}{% endblock %}
 
-  {% block scripts %}
-    <!-- jQuery -->
-    <script src="{% static 'plugins/jquery/jquery.min.js' %}"></script>
-    <!-- Bootstrap 4 -->
-    <script src="{% static 'plugins/bootstrap/js/bootstrap.bundle.min.js' %}"></script>
-    <!-- AdminLTE App -->
-    <script src="{% static 'dist/js/adminlte.min.js' %}"></script>
-  {% endblock scripts %}
-
+  <script src="{% static 'plugins/jquery/jquery.min.js' %}"></script>
+  <script src="{% static 'plugins/bootstrap/js/bootstrap.bundle.min.js' %}"></script>
+  <script src="{% static 'dist/js/adminlte.min.js' %}"></script>
+  <script src="{% static 'plugins/toastr/toastr.min.js' %}"></script>
+  {% block extra_js %}{% endblock %}
 </body>
 </html>
+

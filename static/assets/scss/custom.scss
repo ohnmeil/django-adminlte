@@ -1,5 +1,11 @@
-/*!
+.table thead.thead-dark th { background-color: #343a40; color: #fff; }
+.badge { font-size: 90%; }
+.card .progress { height: 6px; margin-bottom: 4px; }
+/* Sidebar full-height + scroll riêng */
+.layout-fixed .main-sidebar { position: fixed; height: 100vh; }
+.layout-fixed .content-wrapper { margin-left: 250px; min-height: 100vh; }
+.main-sidebar .sidebar { height: calc(100vh - 4rem); overflow-y: auto; }
 
-Custom SCSS
-
-*/
+/* Bảng nhìn rõ hơn một chút */
+.table thead.thead-dark th { background:#343a40; color:#fff; }
+.progress { height:6px; margin-bottom:4px; }

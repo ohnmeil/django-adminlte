@@ -1,0 +1,23 @@
+/* Sidebar full height & scroll riêng */
+.layout-fixed .main-sidebar { position: fixed; top: 0; left: 0; height: 100vh; }
+.main-sidebar .sidebar { height: calc(100vh - 4rem); overflow-y: auto; }
+
+/* Dịch content tránh bị che (desktop >=992px) */
+@media (min-width: 992px) {
+  .sidebar-mini .content-wrapper,
+  .sidebar-mini .main-footer,
+  .sidebar-mini .main-header {
+    margin-left: 250px; /* đúng độ rộng sidebar mặc định */
+    transition: margin-left .3s ease-in-out;
+  }
+  .sidebar-mini.sidebar-collapse .content-wrapper,
+  .sidebar-mini.sidebar-collapse .main-footer,
+  .sidebar-mini.sidebar-collapse .main-header {
+    margin-left: 4.6rem; /* khi thu nhỏ (mini) */
+  }
+}
+
+/* Bảng & progress nhìn rõ hơn (tuỳ chọn) */
+.table thead.thead-dark th { background:#343a40; color:#fff; }
+.progress { height:6px; margin-bottom:4px; }
+
