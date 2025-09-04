@@ -142,3 +142,14 @@ class ManagerFeedbackForm(forms.ModelForm):
             }),
         }
 
+class ApproveTaskForm(forms.Form):
+    score = forms.IntegerField(
+        label="Điểm (1–10)",
+        min_value=1, max_value=10,
+        widget=forms.NumberInput(attrs={"class": "form-control", "min": 1, "max": 10})
+    )
+    comment = forms.CharField(
+        label="Nhận xét",
+        required=False,
+        widget=forms.Textarea(attrs={"class": "form-control", "rows": 3, "placeholder": "Nhận xét khi duyệt..."})
+    )

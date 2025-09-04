@@ -27,6 +27,38 @@
           </div>
           {% endif %}
 
+          {% if can_view_all and dept == 'all' %}
+          <form method="get" class="form-inline ml-2">
+            <input type="hidden" name="tab" value="{{ tab }}">
+            <input type="hidden" name="dept" value="all">
+
+            <div class="form-group mr-2">
+              <label for="dept_id" class="sr-only">Phòng ban</label>
+              <select name="dept_id" id="dept_id" class="form-control form-control-sm">
+                <option value="">— Tất cả phòng ban —</option>
+                {% for d in departments %}
+                  <option value="{{ d.id }}" {% if d.id|stringformat:"s" == dept_id %}selected{% endif %}>{{ d.name }}</option>
+                {% endfor %}
+              </select>
+            </div>
+
+            <div class="form-group mr-2">
+              <label for="sort" class="sr-only">Sắp xếp</label>
+              <select name="sort" id="sort" class="form-control form-control-sm">
+                <option value="">Mới nhất</option>
+                <option value="deadline_asc"  {% if sort == 'deadline_asc' %}selected{% endif %}>Deadline: gần → xa</option>
+                <option value="deadline_desc" {% if sort == 'deadline_desc' %}selected{% endif %}>Deadline: xa → gần</option>
+                <option value="priority_desc" {% if sort == 'priority_desc' %}selected{% endif %}>Ưu tiên: cao → thấp</option>
+                <option value="priority_asc"  {% if sort == 'priority_asc' %}selected{% endif %}>Ưu tiên: thấp → cao</option>
+              </select>
+            </div>
+
+            <button class="btn btn-sm btn-outline-primary">
+              <i class="fas fa-filter mr-1"></i> Lọc
+            </button>
+          </form>
+          {% endif %}
+
           <a href="{% url 'create_task' %}" class="btn btn-sm btn-primary">
             <i class="fas fa-plus-circle mr-1"></i> Tạo công việc mới
           </a>
@@ -84,7 +116,16 @@
           </div>
           <div class="small text-muted">
             {% if dept == 'all' %}
-              Bộ lọc: <span class="badge badge-secondary">Tất cả (read-only)</span>
+              Bộ lọc:
+              <span class="badge badge-secondary">
+                Tất cả{% if readonly_mode %} (read-only){% endif %}
+                {% if dept_id and departments %}
+                  —
+                  {% for d in departments %}
+                    {% if d.id|stringformat:"s" == dept_id %}{{ d.name }}{% endif %}
+                  {% endfor %}
+                {% endif %}
+              </span>
             {% else %}
               Bộ lọc: <span class="badge badge-primary">Phòng ban của tôi</span>
             {% endif %}
@@ -112,6 +153,7 @@
 
             <tbody>
             {% for t in tasks %}
+              {% with assignee_id=t.assignee_id %}
               <tr>
                 <!-- STT -->
                 <td class="text-center align-middle">{{ forloop.counter }}</td>
@@ -141,7 +183,7 @@
                   </div>
                 </td>
 
-                <!-- Nội dung (xuống dòng đẹp) -->
+                <!-- Nội dung -->
                 <td class="td-top">
                   <div class="cell-multiline" title="{{ t.content|default:'—' }}">
                     {{ t.content|default:"—" }}
@@ -193,27 +235,35 @@
                     {% endwith %}
 
                     {% if not readonly_mode %}
-                      <!-- form inline (ẩn) -->
-                      <div id="upd{{ t.pk }}" class="collapse mt-2">
-                        <form method="post" action="{% url 'update_progress' t.pk %}" class="p-2 border rounded bg-light">
-                          {% csrf_token %}
-                          <div class="d-flex align-items-center mb-2">
-                            <input type="number" name="progress" value="{{ t.progress }}" min="0" max="100"
-                                   class="form-control form-control-sm mr-2" style="width: 60px;">
-                            <button class="btn btn-compact btn-primary" type="submit">Lưu</button>
-                          </div>
-                          <textarea name="content" rows="2" class="form-control form-control-sm"
-                                    placeholder="Ghi chú cập nhật..."></textarea>
-                        </form>
-                      </div>
+                      {% if assignee_id == request.user.id or perms.work.can_approve %}
+                        <div id="upd{{ t.pk }}" class="collapse mt-2">
+                          <form method="post" action="{% url 'update_progress' t.pk %}" class="p-2 border rounded bg-light">
+                            {% csrf_token %}
+                            <div class="d-flex align-items-center mb-2">
+                              <input type="number" name="progress" value="{{ t.progress }}" min="0" max="100"
+                                     class="form-control form-control-sm mr-2" style="width: 60px;">
+                              <button class="btn btn-compact btn-primary" type="submit">Lưu</button>
+                            </div>
+                            <textarea name="content" rows="2" class="form-control form-control-sm"
+                                      placeholder="Ghi chú cập nhật..."></textarea>
+                          </form>
+                        </div>
+                      {% endif %}
                     {% endif %}
 
                     <!-- nút dưới cùng -->
                     <div class="update-actions">
                       {% if not readonly_mode %}
-                        <button class="btn btn-compact btn-primary" data-toggle="collapse" data-target="#upd{{ t.pk }}">Cập nhật</button>
+                        {% if assignee_id == request.user.id or perms.work.can_approve %}
+                          <button class="btn btn-compact btn-primary" data-toggle="collapse" data-target="#upd{{ t.pk }}">Cập nhật</button>
+                        {% endif %}
                       {% endif %}
-                      <a class="btn btn-compact btn-outline-secondary" href="{% url 'task_updates' t.pk %}">Chi tiết</a>
+
+                      {% if assignee_id == request.user.id or perms.work.can_approve %}
+                        <a class="btn btn-compact btn-outline-secondary" href="{% url 'task_updates' t.pk %}">Chi tiết</a>
+                      {% else %}
+                        <button class="btn btn-compact btn-outline-secondary" disabled title="Chỉ người phụ trách hoặc quản lý mới xem được">Chi tiết</button>
+                      {% endif %}
                     </div>
                   </div>
                 </td>
@@ -236,10 +286,6 @@
                     {% if t.is_overdue %}
                       <span class="badge badge-danger" title="Quá hạn!">
                         <i class="fas fa-exclamation-triangle mr-1"></i>{{ t.deadline|date:"d/m/Y" }}
-                      </span>
-                    {% elif t.is_due_today %}
-                      <span class="badge badge-warning" title="Hạn hôm nay!">
-                        <i class="fas fa-clock mr-1"></i>{{ t.deadline|date:"d/m/Y" }}
                       </span>
                     {% else %}
                       <span class="badge badge-success">
@@ -276,6 +322,12 @@
                       <span class="text-muted">—</span>
                     {% endif %}
                   {% endwith %}
+
+                  {% if perms.work.can_approve and not readonly_mode %}
+                    <a class="btn btn-compact btn-outline-primary mt-2" href="{% url 'manager_feedback' t.pk %}">
+                      <i class="fas fa-comment-dots mr-1"></i> Phản hồi
+                    </a>
+                  {% endif %}
                 </td>
 
                 <!-- Thao tác -->
@@ -286,9 +338,11 @@
                     </a>
                   {% else %}
                     <div class="btn-group-vertical btn-group-sm">
-                      <a class="btn btn-info mb-1" href="{% url 'edit_task' t.pk %}" title="Sửa công việc">
-                        <i class="fas fa-edit"></i>
-                      </a>
+                      {% if perms.work.can_approve or t.assigned_by_id == request.user.id %}
+                        <a class="btn btn-info mb-1" href="{% url 'edit_task' t.pk %}" title="Sửa công việc">
+                          <i class="fas fa-edit"></i>
+                        </a>
+                      {% endif %}
 
                       {% if perms.work.can_approve and t.status != 'DONE' %}
                       <form method="post" action="{% url 'approve_task' t.pk %}" class="d-inline mb-1">
@@ -312,6 +366,7 @@
                   {% endif %}
                 </td>
               </tr>
+              {% endwith %}
             {% empty %}
               <tr>
                 <td colspan="11" class="text-center py-4">
@@ -372,9 +427,7 @@
 
 /* ===== Cột cập nhật: top card + bottom actions ===== */
 .td-updates{ padding:.5rem; vertical-align:top !important; }
-.updates-cell{
-  display:flex; flex-direction:column; min-height:48px; height:100%;
-}
+.updates-cell{ display:flex; flex-direction:column; min-height:48px; height:100%; }
 .update-card{
   border:1px solid #e9ecef; background:#fff; border-radius:8px;
   padding:.4rem .55rem; max-height:72px; overflow:hidden;
@@ -390,9 +443,7 @@
 .uc-empty{ font-size:.85rem; color:#6c757d; text-align:center; padding:.2rem 0; }
 
 /* nút dưới cùng */
-.update-actions{
-  display:flex; gap:.35rem; margin-top:auto; align-self:flex-start;
-}
+.update-actions{ display:flex; gap:.35rem; margin-top:auto; align-self:flex-start; }
 .btn-compact{ padding:.18rem .5rem; font-size:.75rem; line-height:1; }
 
 /* Badge nhỏ */

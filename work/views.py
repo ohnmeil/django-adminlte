@@ -6,6 +6,7 @@ from django.contrib import messages
 from django.core.exceptions import PermissionDenied
 from django.contrib.auth.models import User
 from django.http import HttpResponseForbidden
+from django.db.models import Q, Case, When, IntegerField  # <-- thêm import này ở đầu file
 
 from .forms import (
     TaskForm, ProgressForm, TaskUpdateForm, ManagerFeedbackForm, DeadlineForm
@@ -14,21 +15,34 @@ from .models import Task, TaskUpdate, ManagerFeedback
 
 
 def _is_manager(user):
-    """Quản lý: superuser, staff hoặc có quyền can_approve."""
-    return user.is_superuser or user.is_staff or user.has_perm("work.can_approve")
+    """Quản lý: superuser hoặc có quyền can_approve (KHÔNG mặc định staff)."""
+    return user.is_superuser or user.has_perm("work.can_approve")
+
+def _personal_scope(qs, user):
+    """
+    Nhân viên: chỉ thấy task liên quan trực tiếp đến mình
+    - assignee = user
+    - supporters chứa user
+    - assigned_by = user
+    """
+    return qs.filter(
+        Q(assignee=user) | Q(supporters=user) | Q(assigned_by=user)
+    ).distinct()
+
 
 @login_required
 def task_list(request):
     tab = request.GET.get('tab', 'dang')
     dept = request.GET.get('dept', 'my')
 
-    # quyền xem tất cả (hoặc quản lý/staff/superuser)
+    # Quyền xem tất cả (manager/superuser/được cấp view_all_tasks)
     can_view_all = (
         request.user.has_perm('work.view_all_tasks') or
         request.user.has_perm('work.can_approve') or
-        request.user.is_staff or
         request.user.is_superuser
     )
+
+    # Auditor: có view_all_tasks nhưng không có can_approve -> read-only khi dept=all
     readonly_mode = (dept == 'all' and not request.user.has_perm('work.can_approve'))
 
     mapping = {
@@ -47,26 +61,54 @@ def task_list(request):
     if status:
         qs = qs.filter(status=status)
 
+    departments = None
+    dept_id = request.GET.get('dept_id')
+    sort = request.GET.get('sort', '')
+
     if dept == 'all':
         if not can_view_all:
-            # fallback nếu không có quyền
-            dept = 'my'
-            # lọc theo phòng ban của user / hoặc chỉ task được giao
+            # ❗ Nhân viên cố vào "all" -> ép về scope cá nhân (KHÔNG theo phòng ban)
+            qs = _personal_scope(qs, request.user)
+            dept = 'my'  # để UI đồng bộ
+            readonly_mode = False
+        else:
+            # Người có quyền xem-all
+            if dept_id:
+                qs = qs.filter(department_id=dept_id)
+
+            # SORT
+            if sort in ('deadline_asc', 'deadline_desc'):
+                has_deadline = Case(
+                    When(deadline__isnull=True, then=1),
+                    default=0,
+                    output_field=IntegerField(),
+                )
+                if sort == 'deadline_asc':
+                    qs = qs.order_by(has_deadline, 'deadline')
+                else:
+                    qs = qs.order_by(has_deadline, '-deadline')
+            elif sort in ('priority_desc', 'priority_asc'):
+                # Đơn giản: sắp theo trường priority (nếu cần rank Case/When thì bật thêm)
+                qs = qs.order_by('-priority' if sort == 'priority_desc' else 'priority', '-created_at')
+            else:
+                qs = qs.order_by('-created_at')
+
+            # Dropdown phòng ban
+            from .models import Department
+            departments = Department.objects.filter(is_active=True).order_by('name')
+    else:
+        # ❗ 'my' cho user thường: CHỈ scope cá nhân (không dựa vào phòng ban)
+        if can_view_all:
+            # Với người có quyền xem-all, 'my' = phòng ban của tôi (nếu có), không thì về cá nhân
             user_dept = getattr(getattr(request.user, 'profile', None), 'department', None)
             if user_dept:
                 qs = qs.filter(department=user_dept)
             else:
-                qs = qs.filter(assignee=request.user)
-        # else: xem tất cả -> không lọc theo phòng ban
-    else:
-        # 'my' -> phòng ban của tôi (hoặc chỉ task được giao nếu chưa có phòng ban)
-        user_dept = getattr(getattr(request.user, 'profile', None), 'department', None)
-        if user_dept:
-            qs = qs.filter(department=user_dept)
+                qs = _personal_scope(qs, request.user)
         else:
-            qs = qs.filter(assignee=request.user)
+            qs = _personal_scope(qs, request.user)
 
-    qs = qs.order_by('-created_at')
+        qs = qs.order_by('-created_at')
 
     return render(request, 'work/task_list.html', {
         'tasks': qs,
@@ -74,10 +116,11 @@ def task_list(request):
         'dept': dept,
         'can_view_all': can_view_all,
         'readonly_mode': readonly_mode,
+        # filter/sort context
+        'departments': departments,
+        'dept_id': dept_id,
+        'sort': sort,
     })
-
-
-
 
 # =========================================================
 # CREATE / EDIT
@@ -104,7 +147,7 @@ def create_task(request):
                         {"form": form, "title": "Tạo công việc"},
                     )
 
-                # nhân viên không set DONE trực tiếp
+                # Nhân viên không set DONE trực tiếp
                 if task.status == "DONE":
                     task.status = "PENDING"
 
@@ -139,6 +182,7 @@ def create_task(request):
 def edit_task(request, pk):
     task = get_object_or_404(Task, pk=pk)
 
+    # Cho sửa: Manager hoặc người giao việc
     if not (_is_manager(request.user) or task.assigned_by_id == request.user.id):
         raise PermissionDenied("Bạn không có quyền sửa công việc này.")
 
@@ -148,6 +192,7 @@ def edit_task(request, pk):
             obj = form.save(commit=False)
 
             if not _is_manager(request.user):
+                # Người thường không đổi phòng ban; không được set DONE trực tiếp
                 obj.department = task.department
                 if obj.status == "DONE":
                     obj.status = "PENDING"
@@ -195,6 +240,11 @@ def approve_task(request, pk):
 def delete_task(request, pk):
     task = get_object_or_404(Task, pk=pk)
 
+    # Chặn xóa task DONE cho non-manager
+    if task.status == "DONE" and not _is_manager(request.user):
+        raise PermissionDenied("Không được xóa công việc đã hoàn thành.")
+
+    # Cho phép xóa: manager hoặc người giao việc
     if not (request.user.has_perm("work.can_approve") or task.assigned_by_id == request.user.id):
         raise PermissionDenied("Bạn không có quyền xóa công việc này.")
 
@@ -214,6 +264,7 @@ def delete_task(request, pk):
 def update_progress(request, pk):
     task = get_object_or_404(Task, pk=pk)
 
+    # Chỉ assignee hoặc manager được cập nhật tiến độ
     if task.assignee != request.user and not _is_manager(request.user):
         raise PermissionDenied("Bạn không có quyền cập nhật tiến độ công việc này.")
 
@@ -296,6 +347,7 @@ def manager_feedback(request, pk):
 def task_updates(request, pk):
     task = get_object_or_404(Task, pk=pk)
 
+    # Xem & thêm update: chỉ assignee hoặc manager
     if task.assignee != request.user and not _is_manager(request.user):
         raise PermissionDenied("Bạn không có quyền xem lịch sử cập nhật công việc này.")
 
