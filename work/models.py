@@ -168,6 +168,8 @@ class Task(models.Model):
             delta = timezone.localtime(self.deadline) - timezone.localtime(timezone.now())
             return delta.days
         return None
+    approval_score = models.PositiveSmallIntegerField("Điểm duyệt (1–10)", null=True, blank=True)
+    approval_comment = models.TextField("Nhận xét khi duyệt", blank=True, null=True)
 
 
 # ==============

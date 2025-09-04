@@ -1,22 +1,28 @@
 from datetime import datetime
-from django.contrib.auth.decorators import login_required, permission_required
-from django.shortcuts import render, redirect, get_object_or_404
-from django.utils import timezone
+
 from django.contrib import messages
-from django.core.exceptions import PermissionDenied
+from django.contrib.auth.decorators import login_required, permission_required
 from django.contrib.auth.models import User
-from django.http import HttpResponseForbidden
-from django.db.models import Q, Case, When, IntegerField  # <-- thêm import này ở đầu file
+from django.core.exceptions import PermissionDenied
+from django.db.models import Q, Case, When, IntegerField
+from django.http import HttpResponseForbidden, JsonResponse, HttpResponse
+from django.shortcuts import render, redirect, get_object_or_404
+from django.template.loader import render_to_string
+from django.utils import timezone
 
 from .forms import (
-    TaskForm, ProgressForm, TaskUpdateForm, ManagerFeedbackForm, DeadlineForm
+    TaskForm, ProgressForm, TaskUpdateForm, ManagerFeedbackForm, DeadlineForm, ApproveTaskForm
 )
 from .models import Task, TaskUpdate, ManagerFeedback
 
 
+# =========================================================
+# HELPERS
+# =========================================================
 def _is_manager(user):
     """Quản lý: superuser hoặc có quyền can_approve (KHÔNG mặc định staff)."""
     return user.is_superuser or user.has_perm("work.can_approve")
+
 
 def _personal_scope(qs, user):
     """
@@ -30,6 +36,9 @@ def _personal_scope(qs, user):
     ).distinct()
 
 
+# =========================================================
+# LIST
+# =========================================================
 @login_required
 def task_list(request):
     tab = request.GET.get('tab', 'dang')
@@ -67,9 +76,9 @@ def task_list(request):
 
     if dept == 'all':
         if not can_view_all:
-            # ❗ Nhân viên cố vào "all" -> ép về scope cá nhân (KHÔNG theo phòng ban)
+            # Nhân viên cố vào "all" -> ép về scope cá nhân (KHÔNG theo phòng ban)
             qs = _personal_scope(qs, request.user)
-            dept = 'my'  # để UI đồng bộ
+            dept = 'my'
             readonly_mode = False
         else:
             # Người có quyền xem-all
@@ -87,9 +96,18 @@ def task_list(request):
                     qs = qs.order_by(has_deadline, 'deadline')
                 else:
                     qs = qs.order_by(has_deadline, '-deadline')
+
             elif sort in ('priority_desc', 'priority_asc'):
-                # Đơn giản: sắp theo trường priority (nếu cần rank Case/When thì bật thêm)
-                qs = qs.order_by('-priority' if sort == 'priority_desc' else 'priority', '-created_at')
+                # Sắp theo thứ tự ý nghĩa: URGENT > HIGH > MEDIUM > LOW
+                prio = Case(
+                    When(priority='URGENT', then=4),
+                    When(priority='HIGH', then=3),
+                    When(priority='MEDIUM', then=2),
+                    default=1,
+                    output_field=IntegerField(),
+                )
+                qs = qs.annotate(_prio=prio).order_by('-_prio' if sort == 'priority_desc' else '_prio', '-created_at')
+
             else:
                 qs = qs.order_by('-created_at')
 
@@ -97,7 +115,7 @@ def task_list(request):
             from .models import Department
             departments = Department.objects.filter(is_active=True).order_by('name')
     else:
-        # ❗ 'my' cho user thường: CHỈ scope cá nhân (không dựa vào phòng ban)
+        # 'my' cho user thường: CHỈ scope cá nhân (không dựa vào phòng ban)
         if can_view_all:
             # Với người có quyền xem-all, 'my' = phòng ban của tôi (nếu có), không thì về cá nhân
             user_dept = getattr(getattr(request.user, 'profile', None), 'department', None)
@@ -122,6 +140,7 @@ def task_list(request):
         'sort': sort,
     })
 
+
 # =========================================================
 # CREATE / EDIT
 # =========================================================
@@ -137,15 +156,8 @@ def create_task(request):
                 if hasattr(request.user, "profile") and request.user.profile.department:
                     task.department = request.user.profile.department
                 else:
-                    messages.error(
-                        request,
-                        "Bạn chưa được gán vào phòng ban nào. Vui lòng liên hệ quản lý.",
-                    )
-                    return render(
-                        request,
-                        "work/task_form.html",
-                        {"form": form, "title": "Tạo công việc"},
-                    )
+                    messages.error(request, "Bạn chưa được gán vào phòng ban nào. Vui lòng liên hệ quản lý.")
+                    return render(request, "work/task_form.html", {"form": form, "title": "Tạo công việc"})
 
                 # Nhân viên không set DONE trực tiếp
                 if task.status == "DONE":
@@ -153,9 +165,7 @@ def create_task(request):
 
             # chuẩn hóa deadline -> aware
             if task.deadline and timezone.is_naive(task.deadline):
-                task.deadline = timezone.make_aware(
-                    task.deadline, timezone.get_current_timezone()
-                )
+                task.deadline = timezone.make_aware(task.deadline, timezone.get_current_timezone())
 
             task.save()
             form.save_m2m()
@@ -165,17 +175,13 @@ def create_task(request):
             messages.error(request, "Vui lòng kiểm tra lại thông tin nhập.")
     else:
         initial = {}
-        if (
-            not _is_manager(request.user)
+        if (not _is_manager(request.user)
             and hasattr(request.user, "profile")
-            and request.user.profile.department
-        ):
+            and request.user.profile.department):
             initial["department"] = request.user.profile.department
         form = TaskForm(initial=initial, user=request.user)
 
-    return render(
-        request, "work/task_form.html", {"form": form, "title": "Tạo công việc mới"}
-    )
+    return render(request, "work/task_form.html", {"form": form, "title": "Tạo công việc mới"})
 
 
 @login_required
@@ -198,26 +204,18 @@ def edit_task(request, pk):
                     obj.status = "PENDING"
 
             if obj.deadline and timezone.is_naive(obj.deadline):
-                obj.deadline = timezone.make_aware(
-                    obj.deadline, timezone.get_current_timezone()
-                )
+                obj.deadline = timezone.make_aware(obj.deadline, timezone.get_current_timezone())
 
             obj.save()
             form.save_m2m()
-            messages.success(
-                request, f"Đã cập nhật công việc '{task.title}' thành công!"
-            )
+            messages.success(request, f"Đã cập nhật công việc '{task.title}' thành công!")
             return redirect("task_list")
         else:
             messages.error(request, "Vui lòng kiểm tra lại thông tin nhập.")
     else:
         form = TaskForm(instance=task, user=request.user)
 
-    return render(
-        request,
-        "work/task_form.html",
-        {"form": form, "title": f"Sửa công việc: {task.title}"},
-    )
+    return render(request, "work/task_form.html", {"form": form, "title": f"Sửa công việc: {task.title}"})
 
 
 # =========================================================
@@ -227,13 +225,39 @@ def edit_task(request, pk):
 @permission_required("work.can_approve", raise_exception=True)
 def approve_task(request, pk):
     task = get_object_or_404(Task, pk=pk)
+    is_modal = request.GET.get("modal") == "1"
+
     if request.method == "POST":
-        task.status = "DONE"  # DONE không ép = 100%
-        task.approver = request.user
-        task.approved_at = timezone.now()
-        task.save(update_fields=["status", "approver", "approved_at", "updated_at"])
-        messages.success(request, f"Đã phê duyệt công việc '{task.title}'!")
-    return redirect("task_list")
+        form = ApproveTaskForm(request.POST)
+        if form.is_valid():
+            task.approval_score = form.cleaned_data["score"]
+            task.approval_comment = form.cleaned_data.get("comment", "") or ""
+            task.status = "DONE"
+            task.approver = request.user
+            task.approved_at = timezone.now()
+            task.save(update_fields=[
+                "approval_score", "approval_comment",
+                "status", "approver", "approved_at", "updated_at"
+            ])
+
+            # Ghi nhận xét như một feedback để hiện ở list
+            if task.approval_comment:
+                ManagerFeedback.objects.create(task=task, manager=request.user, content=task.approval_comment)
+
+            return JsonResponse({"ok": True}) if is_modal else redirect("task_list")
+
+        # form lỗi -> trả lại partial để modal hiển thị lỗi
+        if is_modal:
+            html = render_to_string("work/_approve_form.html", {"task": task, "form": form}, request)
+            return JsonResponse({"ok": False, "html": html}, status=400)
+        return render(request, "work/approve_task.html", {"task": task, "form": form})
+
+    # GET: render form vào modal
+    form = ApproveTaskForm(initial={"score": task.approval_score or 10, "comment": task.approval_comment or ""})
+    if is_modal:
+        html = render_to_string("work/_approve_form.html", {"task": task, "form": form}, request)
+        return HttpResponse(html)
+    return render(request, "work/approve_task.html", {"task": task, "form": form})
 
 
 @login_required
@@ -298,15 +322,10 @@ def update_progress(request, pk):
         form = ProgressForm(initial={"progress": task.progress})
 
     updates = task.updates.all().select_related("user").order_by("-created_at")
-    feedbacks = task.manager_feedbacks.all().select_related("manager").order_by(
-        "-created_at"
-    )
+    feedbacks = task.manager_feedbacks.all().select_related("manager").order_by("-created_at")
 
-    return render(
-        request,
-        "work/update_progress.html",
-        {"task": task, "form": form, "updates": updates, "feedbacks": feedbacks},
-    )
+    return render(request, "work/update_progress.html",
+                  {"task": task, "form": form, "updates": updates, "feedbacks": feedbacks})
 
 
 @login_required
@@ -332,15 +351,9 @@ def manager_feedback(request, pk):
     else:
         form = ManagerFeedbackForm()
 
-    feedbacks = task.manager_feedbacks.all().select_related("manager").order_by(
-        "-created_at"
-    )
+    feedbacks = task.manager_feedbacks.all().select_related("manager").order_by("-created_at")
 
-    return render(
-        request,
-        "work/manager_feedback.html",
-        {"task": task, "feedbacks": feedbacks, "form": form},
-    )
+    return render(request, "work/manager_feedback.html", {"task": task, "feedbacks": feedbacks, "form": form})
 
 
 @login_required
@@ -383,9 +396,7 @@ def task_updates(request, pk):
     else:
         form = TaskUpdateForm(initial={"progress": task.progress})
 
-    return render(
-        request, "work/task_updates.html", {"task": task, "updates": updates, "form": form}
-    )
+    return render(request, "work/task_updates.html", {"task": task, "updates": updates, "form": form})
 
 
 # =========================================================
@@ -430,7 +441,6 @@ def update_deadline(request, pk):
             initial["deadline"] = local_dt.strftime("%Y-%m-%dT%H:%M")
         form = DeadlineForm(instance=task, initial=initial)
 
-    return render(
-        request, "work/deadline_form.html", {"form": form, "task": task, "title": "Cập nhật deadline"}
-    )
+    return render(request, "work/deadline_form.html",
+                  {"form": form, "task": task, "title": "Cập nhật deadline"})
 

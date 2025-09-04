@@ -309,17 +309,35 @@
                   {% endif %}
                 </td>
 
-                <!-- Phản hồi -->
+                <!-- Phản hồi (điểm nổi + lịch sử tách riêng, tránh trùng) -->
                 <td class="align-top">
+                  {% if t.approval_score %}
+                    <div class="rating-card mb-2 {% if t.approval_score >= 8 %}good{% elif t.approval_score >= 5 %}medium{% else %}bad{% endif %}">
+                      <div class="rc-left">
+                        <i class="fas fa-star"></i>
+                        <span class="rc-score">{{ t.approval_score }}</span><span class="rc-total">/10</span>
+                      </div>
+                      {% if t.approval_comment %}
+                        <div class="rc-comment" title="{{ t.approval_comment }}">{{ t.approval_comment }}</div>
+                      {% else %}
+                        <div class="rc-comment muted">Không có nhận xét</div>
+                      {% endif %}
+                    </div>
+                  {% endif %}
+
                   {% with last_feedback=t.manager_feedbacks.all|first %}
                     {% if last_feedback %}
-                      <div class="border rounded p-1 bg-light">
-                        <div class="small text-muted">{{ last_feedback.created_at|date:"d/m" }}</div>
-                        <div class="small cell-multiline" title="{{ last_feedback.content }}">{{ last_feedback.content }}</div>
-                        <small class="text-muted">- {{ last_feedback.manager.get_short_name|default:last_feedback.manager.username }}</small>
-                      </div>
+                      {% if not t.approval_comment and last_feedback.content == t.approval_comment and last_feedback.manager_id == t.approver_id %}
+                        <div class="history-box">
+                          <div class="small text-muted">{{ last_feedback.created_at|date:"d/m" }}</div>
+                          <div class="small cell-multiline" title="{{ last_feedback.content }}">{{ last_feedback.content }}</div>
+                          <small class="text-muted">- {{ last_feedback.manager.get_short_name|default:last_feedback.manager.username }}</small>
+                        </div>
+                      {% endif %}
                     {% else %}
-                      <span class="text-muted">—</span>
+                      {% if not t.approval_score %}
+                        <span class="text-muted">—</span>
+                      {% endif %}
                     {% endif %}
                   {% endwith %}
 
@@ -345,12 +363,14 @@
                       {% endif %}
 
                       {% if perms.work.can_approve and t.status != 'DONE' %}
-                      <form method="post" action="{% url 'approve_task' t.pk %}" class="d-inline mb-1">
-                        {% csrf_token %}
-                        <button class="btn btn-success" title="Phê duyệt">
+                        <!-- Nút mở modal duyệt -->
+                        <button class="btn btn-success mb-1"
+                                data-toggle="modal"
+                                data-target="#approveModal"
+                                data-url="{% url 'approve_task' t.pk %}?modal=1"
+                                title="Phê duyệt & chấm điểm">
                           <i class="fas fa-check"></i>
                         </button>
-                      </form>
                       {% endif %}
 
                       {% if perms.work.can_approve or t.assigned_by_id == request.user.id %}
@@ -390,6 +410,90 @@
     </div>
   </div>
 </section>
+
+<!-- Modal duyệt -->
+<div class="modal fade" id="approveModal" tabindex="-1" role="dialog" aria-hidden="true">
+  <div class="modal-dialog modal-md modal-dialog-centered" role="document">
+    <div class="modal-content" id="approveModalContent">
+      <div class="p-4 text-center">
+        <i class="fas fa-spinner fa-spin"></i> Đang tải...
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  const $modal   = document.getElementById('approveModal');
+  const $content = document.getElementById('approveModalContent');
+
+  function getCookie(name){
+    const v = ('; '+document.cookie).split('; '+name+'=');
+    if (v.length === 2) return v.pop().split(';').shift();
+  }
+
+  // Mở modal -> load form duyệt
+  if (window.jQuery && $modal) {
+    jQuery($modal).on('show.bs.modal', function(e){
+      const btn = jQuery(e.relatedTarget);
+      const url = btn.data('url');
+      $content.innerHTML = '<div class="p-4 text-center"><i class="fas fa-spinner fa-spin"></i> Đang tải...</div>';
+
+      fetch(url, {credentials: 'same-origin'})
+        .then(r => { if(!r.ok) throw new Error('HTTP '+r.status); return r.text(); })
+        .then(html => { $content.innerHTML = html; })
+        .catch(err => { $content.innerHTML = '<div class="p-4 text-danger">Tải form phê duyệt thất bại: '+err.message+'</div>'; });
+    });
+  } else {
+    // Fallback nếu không có jQuery
+    document.addEventListener('click', function(e){
+      const btn = e.target.closest('[data-target="#approveModal"][data-url]');
+      if (!btn) return;
+      const url = btn.getAttribute('data-url');
+      $content.innerHTML = '<div class="p-4 text-center"><i class="fas fa-spinner fa-spin"></i> Đang tải...</div>';
+      fetch(url, {credentials: 'same-origin'})
+        .then(r => { if(!r.ok) throw new Error('HTTP '+r.status); return r.text(); })
+        .then(html => { $content.innerHTML = html; })
+        .catch(err => { $content.innerHTML = '<div class="p-4 text-danger">Tải form phê duyệt thất bại: '+err.message+'</div>'; });
+    });
+  }
+
+  // Submit phê duyệt trong modal
+  document.addEventListener('submit', function(e){
+    const form = e.target;
+    if (form && form.id === 'approveForm') {
+      e.preventDefault();
+      const fd = new FormData(form);
+
+      fetch(form.action, {
+        method: 'POST',
+        body: fd,
+        headers: { 'X-CSRFToken': getCookie('csrftoken') },
+        credentials: 'same-origin'
+      })
+      .then(async (r) => {
+        const ct = r.headers.get('content-type') || '';
+        if (ct.includes('application/json')) {
+          const data = await r.json();
+          if (data.ok) {
+            if (window.jQuery) jQuery('#approveModal').modal('hide');
+            location.reload();
+          } else if (data.html) {
+            $content.innerHTML = data.html; // render lại form kèm lỗi
+          } else {
+            throw new Error('Phê duyệt không thành công');
+          }
+        } else {
+          location.reload(); // fallback
+        }
+      })
+      .catch(err => {
+        $content.innerHTML = '<div class="p-3 text-danger">Có lỗi khi gửi phê duyệt: '+err.message+'</div>';
+      });
+    }
+  });
+})();
+</script>
 
 <style>
 /* Bảng responsive */
@@ -448,6 +552,29 @@
 
 /* Badge nhỏ */
 .badge{white-space:normal; line-height:1.2; font-size:.75em; padding:.3em .5em; margin:.1em;}
+
+/* Thẻ điểm nổi bật */
+.rating-card{
+  display:flex; align-items:center; gap:.5rem;
+  background:#f8fafc; border:1px solid #e7edf3; border-left-width:6px;
+  border-radius:10px; padding:.45rem .6rem;
+}
+.rating-card.good{ border-left-color:#28a745; }
+.rating-card.medium{ border-left-color:#ffc107; }
+.rating-card.bad{ border-left-color:#dc3545; }
+.rc-left{ display:flex; align-items:center; }
+.rc-left .fa-star{ margin-right:.35rem; color:#ffc107; }
+.rc-score{ font-weight:800; font-size:1.05rem; margin-right:.1rem; }
+.rc-total{ color:#6c757d; font-weight:600; }
+.rc-comment{ font-size:.85rem; line-height:1.25; word-break:break-word; }
+.rc-comment.muted{ color:#6c757d; font-style:italic; }
+
+/* Phân tách lịch sử khỏi thẻ điểm */
+.history-box{
+  border-top:1px dashed #e7edf3;
+  padding-top:.45rem;
+  margin-top:.35rem;
+}
 
 /* Ẩn bớt cột phụ trên màn nhỏ */
 @media (max-width:1200px){ .col-support,.col-deadline{display:none;} }
